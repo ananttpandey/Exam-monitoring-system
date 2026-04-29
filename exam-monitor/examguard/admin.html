@@ -1,0 +1,195 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Admin Panel — ExamGuard</title>
+  <link rel="stylesheet" href="css/style.css"/>
+</head>
+<body>
+
+<!-- Navbar -->
+<nav class="navbar">
+  <div class="navbar-inner">
+    <div class="navbar-brand"><span class="dot"></span> ExamGuard <span class="badge badge-dark" style="margin-left:8px;font-size:0.7rem;">ADMIN</span></div>
+    <div class="navbar-actions">
+      <span class="monitor-badge"><span class="pulse"></span> Admin Mode</span>
+      <button onclick="Auth.logout()" class="btn btn-ghost btn-sm">Sign Out</button>
+    </div>
+  </div>
+</nav>
+
+<div class="container" style="padding-top:32px;padding-bottom:60px;">
+
+  <!-- Header & Stats -->
+  <div class="page-header animate-in">
+    <h1>Admin Panel</h1>
+    <p>Manage exams, view all results</p>
+  </div>
+
+  <div class="grid-3 animate-in-delay-1" id="admin-stats" style="margin-bottom:32px;">
+    <div class="stat-card"><div class="stat-num" id="stat-exams">—</div><div class="stat-label">Total Exams</div></div>
+    <div class="stat-card"><div class="stat-num" id="stat-results">—</div><div class="stat-label">Submissions</div></div>
+    <div class="stat-card"><div class="stat-num" id="stat-avg">—</div><div class="stat-label">Avg. Score %</div></div>
+  </div>
+
+  <!-- Tabs -->
+  <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px;margin-bottom:24px;" class="animate-in-delay-1">
+    <div class="tabs" style="width:fit-content;">
+      <button class="tab-btn active" onclick="switchTab('exams',this)">📋 Exams</button>
+      <button class="tab-btn"        onclick="switchTab('results',this)">📊 All Results</button>
+    </div>
+    <button class="btn btn-green btn-sm" onclick="openCreateModal()">+ Create Exam</button>
+  </div>
+
+  <div id="admin-alert" class="alert"></div>
+
+  <!-- Exams Tab -->
+  <div id="tab-exams" class="animate-in-delay-2">
+    <div class="table-wrap">
+      <table class="data-table">
+        <thead><tr><th>Title</th><th>Questions</th><th>Duration</th><th>Actions</th></tr></thead>
+        <tbody id="exams-tbody">
+          <tr><td colspan="4"><div class="loading-center"><div class="spinner"></div><span>Loading…</span></div></td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- Results Tab -->
+  <div id="tab-results" style="display:none;" class="animate-in-delay-2">
+    <div class="table-wrap">
+      <table class="data-table">
+        <thead><tr><th>Student Email</th><th>Exam ID</th><th>Score</th><th>Percentage</th><th>Submitted</th></tr></thead>
+        <tbody id="results-tbody">
+          <tr><td colspan="5"><div class="loading-center"><div class="spinner"></div><span>Loading…</span></div></td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+</div>
+
+<!-- Create Exam Modal -->
+<div class="modal-overlay" id="create-modal">
+  <div class="modal-box">
+    <div class="modal-header">
+      <h3>Create New Exam</h3>
+      <button class="modal-close" onclick="closeModal()">✕</button>
+    </div>
+
+    <div id="modal-alert" class="alert"></div>
+
+    <div style="display:flex;flex-direction:column;gap:14px;">
+      <div class="form-group">
+        <label>Exam Title *</label>
+        <input type="text" id="ex-title" class="form-control" placeholder="e.g. Data Structures Midterm"/>
+      </div>
+      <div class="form-group">
+        <label>Description</label>
+        <input type="text" id="ex-desc" class="form-control" placeholder="Brief description…"/>
+      </div>
+      <div class="form-group">
+        <label>Duration (minutes)</label>
+        <input type="number" id="ex-duration" class="form-control" value="30" min="5"/>
+      </div>
+
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-top:4px;">
+        <h4 style="font-size:0.9rem;">Questions</h4>
+        <button class="btn btn-ghost btn-sm" type="button" onclick="addQuestion()">+ Add Question</button>
+      </div>
+
+      <div id="questions-container" style="display:flex;flex-direction:column;gap:12px;max-height:320px;overflow-y:auto;"></div>
+
+      <div style="display:flex;gap:10px;margin-top:8px;">
+        <button class="btn btn-ghost btn-full" onclick="closeModal()">Cancel</button>
+        <button class="btn btn-green btn-full" id="create-btn" onclick="createExam()">Create Exam</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script src="js/api.js"></script>
+<script>
+  Auth.requireAdmin();
+
+  async function loadAdminData() {
+    try {
+      // Load exams
+      const exams = await Api.getExams();
+      document.getElementById('stat-exams').textContent = exams.length;
+      renderExams(exams);
+
+      // Load all results
+      const results = await Api.getAllResults();
+      document.getElementById('stat-results').textContent = results.length;
+      if (results.length) {
+        const avg = Math.round(
+          results.reduce((a, r) => a + (r.total ? r.score / r.total * 100 : 0), 0) / results.length
+        );
+        document.getElementById('stat-avg').textContent = avg + '%';
+      }
+      renderResults(results);
+
+    } catch (err) {
+      showToast('Failed to load data: ' + err.message, 'error');
+    }
+  }
+
+  function renderExams(exams) {
+    const tbody = document.getElementById('exams-tbody');
+    if (!exams.length) {
+      tbody.innerHTML = '<tr><td colspan="3" style="text-align:center;color:#8888AA;">No exams yet</td></tr>';
+      return;
+    }
+    tbody.innerHTML = exams.map(exam => `
+      <tr>
+        <td><strong>${safe(exam.title || 'Untitled')}</strong></td>
+        <td>${(exam.questions || []).length}</td>
+        <td>
+          <button class="btn btn-danger btn-sm"
+            onclick="deleteExam('${exam.id}','${safe(exam.title||'')}')">
+            Delete
+          </button>
+        </td>
+      </tr>
+    `).join('');
+  }
+
+  function renderResults(results) {
+    const tbody = document.getElementById('results-tbody');
+    if (!results.length) {
+      tbody.innerHTML = '<tr><td colspan="4" style="text-align:center;color:#8888AA;">No submissions yet</td></tr>';
+      return;
+    }
+    tbody.innerHTML = results.map(r => {
+      const pct = r.total ? Math.round(r.score / r.total * 100) : 0;
+      return `
+        <tr>
+          <td>${safe(r.userEmail || '—')}</td>
+          <td>${safe(r.examId   || '—')}</td>
+          <td>${r.score} / ${r.total}</td>
+          <td><span class="badge ${pct >= 50 ? 'badge-green' : 'badge-pink'}">${pct}%</span></td>
+        </tr>`;
+    }).join('');
+  }
+
+  async function deleteExam(id, title) {
+    if (!confirm(`Delete "${title}"? This cannot be undone.`)) return;
+    try {
+      await Api.deleteExam(id);
+      showToast('Exam deleted', 'success');
+      loadAdminData();
+    } catch (err) {
+      showToast('Delete failed: ' + err.message, 'error');
+    }
+  }
+
+  function safe(s) {
+    return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  }
+
+  loadAdminData();
+</script>
+</body>
+</html>

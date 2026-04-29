@@ -1,0 +1,136 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>My Results — ExamGuard</title>
+  <link rel="stylesheet" href="css/style.css"/>
+</head>
+<body>
+
+<nav class="navbar">
+  <div class="navbar-inner">
+    <div class="navbar-brand"><span class="dot"></span> ExamGuard</div>
+    <div class="navbar-actions">
+      <a href="dashboard.html" class="btn btn-ghost btn-sm">← Dashboard</a>
+      <button onclick="Auth.logout()" class="btn btn-ghost btn-sm">Sign Out</button>
+    </div>
+  </div>
+</nav>
+
+<div class="container" style="padding-top:32px;padding-bottom:60px;">
+
+  <!-- Last result flash (if just submitted) -->
+  <div id="flash-result" style="display:none;" class="animate-in">
+    <div class="card" style="margin-bottom:28px;border-color:var(--green);background:linear-gradient(135deg,rgba(125,191,142,0.08),rgba(200,230,201,0.15));">
+      <div style="display:flex;align-items:center;gap:20px;flex-wrap:wrap;">
+        <div id="flash-circle" class="score-circle" style="width:80px;height:80px;font-size:1.3rem;"></div>
+        <div>
+          <h3>Exam Submitted! 🎉</h3>
+          <p id="flash-detail" style="color:var(--soft);margin-top:4px;"></p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="page-header animate-in">
+    <h1>My Results</h1>
+    <p>Your exam history and scores</p>
+  </div>
+
+  <!-- Summary Stats -->
+  <div class="grid-3 animate-in-delay-1" id="stats-row" style="margin-bottom:28px;"></div>
+
+  <div id="result-alert" class="alert"></div>
+
+  <!-- Results List -->
+  <div id="results-list" class="animate-in-delay-2" style="display:flex;flex-direction:column;gap:14px;">
+    <div class="loading-center"><div class="spinner"></div><span>Loading results…</span></div>
+  </div>
+
+</div>
+
+<script src="js/api.js"></script>
+<script>
+  Auth.requireAuth();
+
+  async function loadResults() {
+    const listEl  = document.getElementById('results-list');
+    const alertEl = document.getElementById('result-alert');
+
+    // Show flash card if user just submitted
+    const lastResult = sessionStorage.getItem('lastResult');
+    if (lastResult) {
+      try {
+        const r   = JSON.parse(lastResult);
+        const pct = r.total ? Math.round(r.score / r.total * 100) : 0;
+        const flash = document.getElementById('flash-result');
+        if (flash) {
+          flash.innerHTML = `
+            <div style="background:#e8f5e9;border:1px solid #c8e6c9;
+                        border-radius:12px;padding:20px;margin-bottom:24px;">
+              <h3>✅ Exam Submitted!</h3>
+              <p>Score: <strong>${r.score} / ${r.total}</strong> (${pct}%)</p>
+            </div>`;
+          flash.style.display = 'block';
+        }
+      } catch {}
+      sessionStorage.removeItem('lastResult');
+    }
+
+    try {
+      // USER  → GET /api/exams/results/my  (only their results)
+      // ADMIN → GET /api/exams/results     (all results)
+      const results = Auth.isAdmin()
+        ? await Api.getAllResults()
+        : await Api.getMyResults();
+
+      if (!results || results.length === 0) {
+        listEl.innerHTML = `
+          <div style="text-align:center;padding:40px;color:#8888AA;">
+            <p>No results yet. Complete an exam first.</p>
+            <a href="dashboard.html" class="btn btn-green" style="margin-top:16px;">
+              Browse Exams
+            </a>
+          </div>`;
+        return;
+      }
+
+      listEl.innerHTML = results.map(r => {
+        const pct   = r.total ? Math.round(r.score / r.total * 100) : 0;
+        const color = pct >= 75 ? '#2e7d32' : pct >= 50 ? '#e65100' : '#c62828';
+        return `
+          <div class="result-card">
+            <div>
+              ${Auth.isAdmin()
+                ? `<p style="font-size:0.82rem;color:#8888AA;">${safe(r.userEmail || '')}</p>`
+                : ''}
+              <p><strong>Exam ID:</strong> ${safe(r.examId || '—')}</p>
+              <div style="margin-top:8px;display:flex;gap:8px;">
+                <span class="badge badge-sand">${r.score} / ${r.total} correct</span>
+                ${pct >= 50
+                  ? '<span class="badge badge-green">Passed</span>'
+                  : '<span class="badge badge-pink">Failed</span>'}
+              </div>
+            </div>
+            <div class="score-circle" style="color:${color};">
+              <span>${pct}%</span>
+              <small>${r.score}/${r.total}</small>
+            </div>
+          </div>`;
+      }).join('');
+
+    } catch (err) {
+      alertEl.className = 'alert alert-error show';
+      alertEl.textContent = 'Failed to load results: ' + err.message;
+    }
+  }
+
+  function safe(s) {
+    return String(s || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  }
+
+  loadResults();
+</script>
+</body>
+</html>

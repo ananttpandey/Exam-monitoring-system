@@ -1,0 +1,122 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Verify OTP — ExamGuard</title>
+  <link rel="stylesheet" href="css/style.css"/>
+</head>
+<body class="auth-page">
+  <div class="auth-bg-blob"></div>
+  <div class="auth-bg-blob2"></div>
+
+  <div class="auth-card" style="max-width:400px;">
+    <div class="auth-logo">
+      <div style="font-size:2rem;margin-bottom:8px;">✉️</div>
+      <h2>Enter OTP</h2>
+      <p>6-digit code for <strong id="otp-email"></strong></p>
+      <p style="color:#4A9B5F;font-size:0.85rem;margin-top:6px;">
+        Check your backend terminal window for the OTP number
+      </p>
+    </div>
+
+    <div id="otp-alert" class="alert"></div>
+
+    <div class="otp-inputs">
+      <input class="otp-box" type="text" maxlength="1" inputmode="numeric"/>
+      <input class="otp-box" type="text" maxlength="1" inputmode="numeric"/>
+      <input class="otp-box" type="text" maxlength="1" inputmode="numeric"/>
+      <input class="otp-box" type="text" maxlength="1" inputmode="numeric"/>
+      <input class="otp-box" type="text" maxlength="1" inputmode="numeric"/>
+      <input class="otp-box" type="text" maxlength="1" inputmode="numeric"/>
+    </div>
+
+    <button id="verify-btn" class="btn btn-green btn-full btn-lg">Verify OTP</button>
+
+    <div style="text-align:center;margin-top:12px;font-size:0.85rem;">
+      <a href="index.html" style="color:#8888AA;">← Start over</a>
+    </div>
+  </div>
+
+  <script src="js/api.js"></script>
+  <script>
+    // Guard — must have email from login step
+    const email = localStorage.getItem('pendingEmail');
+    if (!email) window.location.href = 'index.html';
+    document.getElementById('otp-email').textContent = email;
+
+    // OTP box auto-advance
+    const boxes = document.querySelectorAll('.otp-box');
+    boxes.forEach((box, i) => {
+      box.addEventListener('input', () => {
+        box.value = box.value.replace(/\D/g, '');
+        if (box.value && i < boxes.length - 1) boxes[i + 1].focus();
+      });
+      box.addEventListener('keydown', e => {
+        if (e.key === 'Backspace' && !box.value && i > 0) boxes[i - 1].focus();
+      });
+      box.addEventListener('paste', e => {
+        e.preventDefault();
+        const digits = e.clipboardData.getData('text').replace(/\D/g,'').slice(0,6).split('');
+        digits.forEach((d, j) => { if (boxes[i+j]) boxes[i+j].value = d; });
+        boxes[Math.min(i + digits.length, boxes.length - 1)].focus();
+      });
+    });
+
+    function getOtp() {
+      return Array.from(boxes).map(b => b.value).join('');
+    }
+
+    document.getElementById('verify-btn').addEventListener('click', async () => {
+      const otp = getOtp();
+      if (otp.length < 6) {
+        showAlert('otp-alert', 'Please enter the full 6-digit code.');
+        return;
+      }
+
+      const btn = document.getElementById('verify-btn');
+      btn.disabled = true;
+      btn.textContent = 'Verifying…';
+      hideAlert('otp-alert');
+
+      try {
+        // POST /api/auth/verify-otp → returns { token, role }
+        const res = await fetch('http://localhost:8080/api/auth/verify-otp', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email, otp })
+        });
+
+        const data = await res.json();
+
+        if (!res.ok) {
+          throw new Error(typeof data === 'string' ? data : (data.message || 'OTP failed'));
+        }
+
+        const token = data.token;
+        const role  = data.role;
+
+        if (!token) throw new Error('No token received from server');
+
+        // ✅ Save JWT and role to localStorage
+        localStorage.setItem('jwt',      token);
+        localStorage.setItem('userRole', role);
+
+        showAlert('otp-alert', 'Verified! Redirecting…', 'success');
+
+        setTimeout(() => {
+          window.location.href = (role === 'ROLE_ADMIN') ? 'admin.html' : 'dashboard.html';
+        }, 1000);
+
+      } catch (err) {
+        showAlert('otp-alert', err.message || 'Invalid OTP. Try again.');
+        boxes.forEach(b => b.value = '');
+        boxes[0].focus();
+      } finally {
+        btn.disabled = false;
+        btn.textContent = 'Verify OTP';
+      }
+    });
+  </script>
+</body>
+</html>

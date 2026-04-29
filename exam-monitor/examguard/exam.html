@@ -1,0 +1,212 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Attempt Exam — ExamGuard</title>
+  <link rel="stylesheet" href="css/style.css"/>
+  <style>
+    .exam-topbar {
+      background: var(--card-bg); border-bottom: 1px solid var(--border);
+      position: sticky; top: 0; z-index: 50;
+      padding: 14px 24px;
+    }
+    .exam-topbar-inner {
+      max-width: 800px; margin: 0 auto;
+      display: flex; align-items: center; justify-content: space-between; gap: 16px;
+    }
+    .exam-title { font-weight: 600; font-size: 1rem; }
+    .timer-pill {
+      background: var(--dark); color: white;
+      padding: 6px 16px; border-radius: 50px;
+      font-size: 0.9rem; font-weight: 500;
+      min-width: 80px; text-align: center;
+    }
+    .timer-pill.warning { background: var(--danger); }
+    .exam-content { max-width: 800px; margin: 0 auto; padding: 32px 24px 80px; }
+    .sticky-submit {
+      position: fixed; bottom: 0; left: 0; right: 0;
+      background: rgba(245,240,232,0.95); backdrop-filter: blur(10px);
+      border-top: 1px solid var(--border);
+      padding: 16px 24px;
+      display: flex; align-items: center; justify-content: center; gap: 16px;
+    }
+  </style>
+</head>
+<body style="padding-bottom:0;">
+
+<div class="exam-topbar">
+  <div class="exam-topbar-inner">
+    <div>
+      <div class="exam-title" id="exam-title">Loading exam…</div>
+      <div style="font-size:0.8rem;color:var(--soft);" id="q-count"></div>
+    </div>
+    <div style="display:flex;align-items:center;gap:12px;">
+      <span class="monitor-badge"><span class="pulse"></span> Proctored</span>
+      <div class="timer-pill" id="timer">—</div>
+    </div>
+  </div>
+  <div style="max-width:800px;margin:10px auto 0;">
+    <div class="progress-wrap">
+      <div class="progress-bar" id="progress-bar" style="width:0%"></div>
+    </div>
+  </div>
+</div>
+
+<div class="exam-content" id="exam-content">
+  <div class="loading-center"><div class="spinner"></div><span>Loading questions…</span></div>
+</div>
+
+<div class="sticky-submit">
+  <span id="answered-count" style="font-size:0.88rem;color:var(--soft);"></span>
+  <!-- ✅ NO onclick attribute — listener attached in JS -->
+  <button id="submit-btn" class="btn btn-green btn-lg" disabled>
+    Submit Exam
+  </button>
+</div>
+
+<script src="js/api.js"></script>
+<script>
+  Auth.requireAuth();
+
+  const examId = sessionStorage.getItem('currentExamId');
+  if (!examId) window.location.href = 'dashboard.html';
+
+  let currentExam = null;
+  const userAnswers = {};
+
+  // ✅ submitExam is a plain global function — works from anywhere
+  async function submitExam() {
+    console.log('🖱️ submitExam() called');
+
+    const total    = (currentExam && currentExam.questions) ? currentExam.questions.length : 0;
+    const answered = Object.keys(userAnswers).length;
+
+    console.log('answered:', answered, 'total:', total);
+    console.log('userAnswers:', JSON.stringify(userAnswers));
+
+    if (answered < total) {
+      alert('Please answer all ' + total + ' questions. (' + answered + '/' + total + ' done)');
+      return;
+    }
+
+    const btn = document.getElementById('submit-btn');
+    btn.disabled    = true;
+    btn.textContent = 'Submitting…';
+
+    try {
+      const answers = Object.entries(userAnswers).map(([index, selected]) => ({
+        questionIndex:  parseInt(index),
+        selectedAnswer: selected
+      }));
+
+      console.log('📤 Payload:', JSON.stringify({ examId, answers }));
+
+      const result = await Api.submitExam({ examId, answers });
+
+      console.log('✅ Result:', JSON.stringify(result));
+
+      sessionStorage.setItem('lastResult', JSON.stringify(result));
+      window.location.href = 'result.html';
+
+    } catch (err) {
+      console.error('❌ Error:', err);
+      alert('Submission failed: ' + (err.message || JSON.stringify(err)));
+      btn.disabled    = false;
+      btn.textContent = 'Submit Exam';
+    }
+  }
+
+  function renderQuestions(questions) {
+    const container = document.getElementById('exam-content');
+    if (!questions.length) {
+      container.innerHTML = '<p>No questions found.</p>';
+      return;
+    }
+
+    container.innerHTML = questions.map((q, i) => `
+      <div class="question-block">
+        <div class="question-num">Question ${i + 1} of ${questions.length}</div>
+        <div class="question-text">${q.questionText || q.text || q.question || ''}</div>
+        <div class="options">
+          ${(q.options || []).map((opt, j) => `
+            <label class="option-label" id="opt-${i}-${j}"
+              data-qi="${i}" data-oi="${j}"
+              data-val="${opt.replace(/"/g,'&quot;').replace(/'/g,'&#39;')}">
+              <input type="radio" name="q${i}"/>
+              <div class="option-dot"></div>
+              <span>${opt}</span>
+            </label>
+          `).join('')}
+        </div>
+      </div>
+    `).join('');
+
+    container.querySelectorAll('.option-label').forEach(label => {
+      label.addEventListener('click', () => {
+        selectAnswer(
+          parseInt(label.dataset.qi),
+          label.dataset.val,
+          parseInt(label.dataset.oi)
+        );
+      });
+    });
+  }
+
+  function selectAnswer(qIndex, value, optIndex) {
+    userAnswers[qIndex] = value;
+
+    document.querySelectorAll(`[id^="opt-${qIndex}-"]`)
+      .forEach(el => el.classList.remove('selected'));
+    document.getElementById(`opt-${qIndex}-${optIndex}`).classList.add('selected');
+
+    const total    = (currentExam.questions || []).length;
+    const answered = Object.keys(userAnswers).length;
+
+    // Update count label
+    const countEl = document.getElementById('answered-count');
+    if (countEl) countEl.textContent = answered + ' of ' + total + ' answered';
+
+    // Update progress bar
+    const bar = document.getElementById('progress-bar');
+    if (bar) bar.style.width = (total ? (answered / total * 100) : 0) + '%';
+
+    // Enable submit when all answered
+    const btn = document.getElementById('submit-btn');
+    if (btn) {
+      btn.textContent = 'Submit Exam (' + answered + '/' + total + ' answered)';
+      btn.disabled    = answered < total;
+    }
+  }
+
+  async function loadExam() {
+    try {
+      currentExam = await Api.getExam(examId);
+
+      document.getElementById('exam-title').textContent =
+        currentExam.title || 'Exam';
+      document.getElementById('q-count').textContent =
+        (currentExam.questions || []).length + ' Questions';
+
+      renderQuestions(currentExam.questions || []);
+
+      // ✅ Attach submit listener HERE — after everything is loaded
+      const btn = document.getElementById('submit-btn');
+      if (btn) {
+        btn.addEventListener('click', submitExam);
+        console.log('✅ Submit listener attached');
+      } else {
+        console.error('❌ submit-btn not found');
+      }
+
+    } catch (err) {
+      console.error('Load exam error:', err);
+      document.getElementById('exam-content').innerHTML =
+        '<p style="color:red;">Failed to load exam: ' + err.message + '</p>';
+    }
+  }
+
+  loadExam();
+</script>
+</body>
+</html>

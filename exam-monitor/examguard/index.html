@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>ExamGuard — Smart Exam Monitoring</title>
+  <link rel="stylesheet" href="css/style.css"/>
+  <style>
+    body { overflow: hidden; }
+    .landing {
+      min-height: 100vh; display: flex; flex-direction: column;
+      align-items: center; justify-content: center;
+      padding: 24px; text-align: center; position: relative;
+    }
+    .blob1 {
+      position: fixed; top: -120px; right: -80px;
+      width: 500px; height: 500px; border-radius: 50%;
+      background: radial-gradient(circle, rgba(125,191,142,0.25), transparent 70%);
+      pointer-events: none;
+    }
+    .blob2 {
+      position: fixed; bottom: -100px; left: -80px;
+      width: 400px; height: 400px; border-radius: 50%;
+      background: radial-gradient(circle, rgba(242,196,206,0.3), transparent 70%);
+      pointer-events: none;
+    }
+    .blob3 {
+      position: fixed; top: 40%; left: 40%;
+      width: 250px; height: 250px; border-radius: 50%;
+      background: radial-gradient(circle, rgba(232,213,183,0.2), transparent 70%);
+      pointer-events: none;
+    }
+    .landing-content { position: relative; z-index: 1; max-width: 560px; }
+    .logo-mark {
+      display: inline-flex; align-items: center; gap: 10px;
+      background: var(--dark); color: var(--white);
+      border-radius: 50px; padding: 8px 20px;
+      font-size: 0.85rem; font-weight: 500;
+      margin-bottom: 28px;
+    }
+    .logo-mark .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--green); animation: pulse 1.5s infinite; }
+    .landing-title { margin-bottom: 16px; }
+    .landing-title em { font-style: italic; color: var(--green-d); }
+    .landing-sub { color: var(--soft); max-width: 380px; margin: 0 auto 40px; font-size: 0.95rem; }
+    .role-cards { display: flex; gap: 16px; flex-wrap: wrap; justify-content: center; }
+    .role-card {
+      background: var(--card-bg); border: 1.5px solid var(--border);
+      border-radius: 20px; padding: 28px 32px;
+      min-width: 180px; cursor: pointer;
+      transition: all var(--transition);
+      text-decoration: none; color: var(--dark);
+    }
+    .role-card:hover { border-color: var(--green); transform: translateY(-4px); box-shadow: var(--shadow-hover); }
+    .role-card .role-icon { font-size: 2.2rem; margin-bottom: 12px; }
+    .role-card h3 { font-size: 1.05rem; }
+    .role-card p  { font-size: 0.82rem; color: var(--soft); margin-top: 4px; }
+    .role-card.admin-card { background: var(--dark); color: var(--white); border-color: var(--dark); }
+    .role-card.admin-card p { color: rgba(255,255,255,0.55); }
+    .bottom-link { margin-top: 32px; font-size: 0.85rem; color: var(--soft); }
+    .bottom-link a { color: var(--green-d); font-weight: 500; }
+  </style>
+</head>
+<body>
+  <div class="blob1"></div>
+  <div class="blob2"></div>
+  <div class="blob3"></div>
+
+  <div class="landing">
+    <div class="landing-content animate-in">
+      <div class="logo-mark"><span class="dot"></span> ExamGuard</div>
+
+      <h1 class="landing-title">Smart <em>Exam</em><br/>Monitoring System</h1>
+      <p class="landing-sub">Secure, real-time proctoring with role-based access. Built for fairness.</p>
+
+      <div class="role-cards animate-in-delay-1">
+        <a href="user-login.html" class="role-card">
+          <div class="role-icon">🎓</div>
+          <h3>Student Login</h3>
+          <p>Take exams &amp; view results</p>
+        </a>
+        <a href="admin-login.html" class="role-card admin-card">
+          <div class="role-icon">🛡️</div>
+          <h3>Admin Login</h3>
+          <p>Manage exams &amp; results</p>
+        </a>
+      </div>
+
+      <p class="bottom-link animate-in-delay-2">
+        New here? <a href="register.html">Create an account</a>
+      </p>
+    </div>
+  </div>
+</body>
+</html>

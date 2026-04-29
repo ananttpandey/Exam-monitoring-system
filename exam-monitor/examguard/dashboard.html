@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Dashboard — ExamGuard</title>
+  <link rel="stylesheet" href="css/style.css"/>
+</head>
+<body>
+
+<!-- Navbar -->
+<nav class="navbar">
+  <div class="navbar-inner">
+    <div class="navbar-brand"><span class="dot"></span> ExamGuard</div>
+    <div class="navbar-actions">
+      <span class="monitor-badge"><span class="pulse"></span> Monitoring Active</span>
+      <button onclick="Auth.logout()" class="btn btn-ghost btn-sm">Sign Out</button>
+    </div>
+  </div>
+</nav>
+
+<div class="container" style="padding-top:32px;padding-bottom:60px;">
+
+  <!-- Header -->
+  <div class="page-header animate-in">
+    <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px;">
+      <div>
+        <h1>My Exams</h1>
+        <p>Select an exam below to begin. Good luck! 🍀</p>
+      </div>
+      <div style="display:flex;gap:10px;">
+        <a href="result.html" class="btn btn-outline btn-sm">📊 My Results</a>
+      </div>
+    </div>
+  </div>
+
+  <!-- Filter Tags -->
+  <div style="display:flex;gap:8px;margin-bottom:24px;flex-wrap:wrap;" class="animate-in-delay-1">
+    <span class="badge badge-dark" id="count-badge">Loading…</span>
+    <span class="badge badge-green">Available</span>
+  </div>
+
+  <!-- Alert -->
+  <div id="dash-alert" class="alert"></div>
+
+  <!-- Exam Grid -->
+  <div id="exam-grid" class="grid-2 animate-in-delay-2">
+    <div class="loading-center" style="grid-column:1/-1;">
+      <div class="spinner"></div>
+      <span>Loading exams…</span>
+    </div>
+  </div>
+
+</div>
+
+<script src="js/api.js"></script>
+<script>
+  Auth.requireAuth();
+  if (Auth.isAdmin()) window.location.href = 'admin.html';
+
+  async function loadExams() {
+    const grid    = document.getElementById('exam-grid');
+    const alertEl = document.getElementById('dash-alert');
+
+    try {
+      // GET /api/exams — returns array of exam objects from MongoDB
+      const exams = await Api.getExams();
+
+      if (!exams || exams.length === 0) {
+        grid.innerHTML = '<p style="color:#8888AA;">No exams available right now.</p>';
+        return;
+      }
+
+      // Render one card per exam
+      grid.innerHTML = exams.map(exam => `
+        <div class="exam-card" onclick="startExam('${exam.id}')">
+          <div class="exam-card-header">
+            <div class="exam-card-icon">📝</div>
+            <span class="badge badge-green">Open</span>
+          </div>
+          <h3>${safe(exam.title || 'Untitled Exam')}</h3>
+          <p>${safe(exam.description || 'Click to attempt this exam.')}</p>
+          <div class="exam-card-footer">
+            <span class="badge badge-sand">
+              ${(exam.questions || []).length} Questions
+            </span>
+            ${exam.duration ? `<span class="badge badge-sand">⏱ ${exam.duration} min</span>` : ''}
+            <button class="btn btn-primary btn-sm">Start →</button>
+          </div>
+        </div>
+      `).join('');
+
+    } catch (err) {
+      alertEl.className = 'alert alert-error show';
+      alertEl.textContent = 'Failed to load exams: ' + err.message;
+    }
+  }
+
+  function startExam(id) {
+    sessionStorage.setItem('currentExamId', id);
+    window.location.href = 'exam.html';
+  }
+
+  function safe(s) {
+    return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  }
+
+  loadExams();
+</script>
+</body>
+</html>

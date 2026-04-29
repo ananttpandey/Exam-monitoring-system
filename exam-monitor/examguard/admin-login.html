@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Admin Login — ExamGuard</title>
+  <link rel="stylesheet" href="css/style.css"/>
+  <style>
+    .auth-bg-blob  { background: radial-gradient(circle, rgba(26,26,46,0.12), transparent 70%); }
+    .auth-card { border-color: var(--dark); }
+    .admin-header { background: var(--dark); color: white; border-radius: 12px; padding: 16px; text-align:center; margin-bottom: 24px; }
+  </style>
+</head>
+<body class="auth-page">
+  <div class="auth-bg-blob"></div>
+  <div class="auth-bg-blob2"></div>
+
+  <div class="auth-card">
+    <div class="admin-header">
+      <div style="font-size:1.8rem;margin-bottom:4px;">🛡️</div>
+      <h2 style="color:white;font-size:1.5rem;">Admin Portal</h2>
+      <p style="color:rgba(255,255,255,0.6);font-size:0.85rem;margin-top:4px;">Restricted access only</p>
+    </div>
+
+    <div id="admin-alert" class="alert"></div>
+
+    <form id="admin-form" style="display:flex;flex-direction:column;gap:16px;">
+      <div class="form-group">
+        <label>Admin Email</label>
+        <input type="email" id="email" class="form-control" placeholder="admin@example.com" required/>
+      </div>
+      <div class="form-group">
+        <label>Password</label>
+        <input type="password" id="password" class="form-control" placeholder="Admin password" required/>
+      </div>
+
+      <button type="submit" id="admin-btn" class="btn btn-primary btn-full btn-lg" style="margin-top:4px;">
+        Access Admin Panel
+      </button>
+    </form>
+
+    <div style="text-align:center;margin-top:20px;font-size:0.85rem;">
+      <a href="index.html" style="color:var(--soft);">← Back to home</a>
+    </div>
+  </div>
+
+  <script src="js/api.js"></script>
+  <script>
+    document.getElementById('admin-form').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      hideAlert('admin-alert');
+
+      const email    = document.getElementById('email').value.trim();
+      const password = document.getElementById('password').value;
+
+      setLoading('admin-btn', true);
+      try {
+        await Api.login({ email, password });
+        localStorage.setItem('pendingEmail', email);
+        Auth.setRole('ROLE_ADMIN');
+        showAlert('admin-alert', 'OTP sent to admin email!', 'success');
+        setTimeout(() => window.location.href = 'otp.html', 1000);
+      } catch (err) {
+        showAlert('admin-alert', err.message || 'Invalid credentials.');
+      } finally {
+        setLoading('admin-btn', false, 'Access Admin Panel');
+      }
+    });
+  </script>
+</body>
+</html>

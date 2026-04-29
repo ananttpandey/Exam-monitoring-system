@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Register — ExamGuard</title>
+  <link rel="stylesheet" href="css/style.css"/>
+</head>
+<body class="auth-page">
+  <div class="auth-bg-blob"></div>
+  <div class="auth-bg-blob2"></div>
+
+  <div class="auth-card">
+    <div class="auth-logo">
+      <h2>Create Account</h2>
+      <p>Join ExamGuard as a student</p>
+    </div>
+
+    <div id="reg-alert" class="alert"></div>
+
+    <form id="reg-form" style="display:flex;flex-direction:column;gap:16px;">
+      <div class="form-group">
+        <label>Full Name</label>
+        <input type="text" id="name" class="form-control" placeholder="Abigail Smith" required/>
+      </div>
+      <div class="form-group">
+        <label>Email Address</label>
+        <input type="email" id="email" class="form-control" placeholder="you@example.com" required/>
+      </div>
+      <div class="form-group">
+        <label>Password</label>
+        <input type="password" id="password" class="form-control" placeholder="Min. 8 characters" required/>
+      </div>
+      <div class="form-group">
+        <label>Confirm Password</label>
+        <input type="password" id="confirm" class="form-control" placeholder="Re-enter password" required/>
+      </div>
+
+      <button type="submit" id="reg-btn" class="btn btn-green btn-full btn-lg" style="margin-top:4px;">
+        Create Account
+      </button>
+    </form>
+
+    <div class="auth-divider">or</div>
+    <div style="text-align:center;font-size:0.88rem;color:var(--soft);">
+      Already have an account? <a href="user-login.html" style="color:var(--green-d);font-weight:500;">Sign in</a>
+    </div>
+  </div>
+
+  <script src="js/api.js"></script>
+  <script>
+    document.getElementById('reg-form').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      hideAlert('reg-alert');
+
+      const name     = document.getElementById('name').value.trim();
+      const email    = document.getElementById('email').value.trim();
+      const password = document.getElementById('password').value;
+      const confirm  = document.getElementById('confirm').value;
+
+      if (password !== confirm) {
+        showAlert('reg-alert', 'Passwords do not match.'); return;
+      }
+      if (password.length < 8) {
+        showAlert('reg-alert', 'Password must be at least 8 characters.'); return;
+      }
+
+      setLoading('reg-btn', true);
+      try {
+        await Api.register({ name, email, password, role: 'ROLE_USER' });
+        showAlert('reg-alert', 'Account created! Redirecting to login…', 'success');
+        setTimeout(() => window.location.href = 'user-login.html', 1500);
+      } catch (err) {
+        showAlert('reg-alert', err.message || 'Registration failed. Try again.');
+      } finally {
+        setLoading('reg-btn', false, 'Create Account');
+      }
+    });
+  </script>
+</body>
+</html>
